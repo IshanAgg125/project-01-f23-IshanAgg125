@@ -7,14 +7,6 @@
 #include <errno.h>
 #include <stdbool.h>
 
-bool containsProcessInformation(char *argument);
-void stateInformationUserTimeAndSystemTime(char *PID);
-char *commandline(char *PID);
-char stateInformation(char *PID);
-int userTime(char *PID);
-int systemTime(char *PID);
-
-
 struct proc {
     int pid;
     char state; //-s
@@ -23,6 +15,17 @@ struct proc {
     unsigned int stime; //-S
     unsigned int vMemory;
 };
+
+bool containsProcessInformation(char *argument);
+char *commandline(char *PID);
+char stateInformation(char *PID);
+int userTime(char *PID);
+int systemTime(char *PID);
+int virtualMemory(char *PID);
+void printElementsOfStruct(struct proc myProc);
+
+
+
 
 int main(int argc, char **argv) {
     struct proc myProc;
@@ -51,6 +54,8 @@ int main(int argc, char **argv) {
             myProc.stime = result;
         } else if (strcmp(argv[i], "-v") == 0) {
             //printf("%s is at location %d\n", "Entering the -v", i);
+            int result = virtualMemory(argv[locationOfPID]);
+            myProc.vMemory = result;
             //virtualMemory(argv[i]);
         } else if (strcmp(argv[i], "-U") == 0) {
             containsUtime = 1;
@@ -71,11 +76,9 @@ int main(int argc, char **argv) {
         char *result = commandline(argv[locationOfPID]);
         strncpy(myProc.command, result, sizeof(myProc.command));
     }
-    printf("Struct PID is %d\n", myProc.pid);
-    printf("struct command is %s\n", myProc.command);
-    printf("Struct state is %c\n", myProc.state);
-    printf("Struct user time is %d\n", myProc.utime);
-    printf("Struct System time is %d\n", myProc.stime);
+
+    printElementsOfStruct(myProc);
+
 
 }
 
@@ -85,6 +88,35 @@ bool containsProcessInformation(char *argument) {
     } 
     return false;
 }
+int virtualMemory(char *PID) {
+    FILE *file;
+    char pathName[200];
+    int text;
+    int result = 0;
+    //char toReturn;
+
+    // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
+    snprintf(pathName, sizeof(pathName), "/proc/%s/statm", PID);
+    file = fopen(pathName, "r");
+    if (file == NULL) {
+        perror("Error opening the file");
+        exit(EXIT_FAILURE);
+    }
+    int count = 1;
+    while ((text = fgetc(file)) != EOF) {
+        printf("%c", text);
+         if (text == ' ') {
+            count++;
+            continue;
+        }
+        if(count == 1) {
+            result = result * 10 + (text - '0'); //return '5' - '0' = 0 * 10 + 5 = 5
+        }
+    }
+    fclose(file);
+    return result;
+}
+
 char stateInformation(char *PID) {
     FILE *file;
     char pathName[200];
@@ -94,7 +126,7 @@ char stateInformation(char *PID) {
 
     // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
-    printf("%s\n", pathName);
+    //printf("%s\n", pathName);
     file = fopen(pathName, "r");
     if (file == NULL) {
         perror("Error opening the file");
@@ -102,7 +134,7 @@ char stateInformation(char *PID) {
     }
     int count = 1;
     while ((text = fgetc(file)) != EOF) {
-        printf("%c", text);
+        //printf("%c", text);
         if (text == ' ') {
             count++;
             continue;
@@ -180,7 +212,7 @@ char *commandline(char *PID) {
 
     // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/cmdline", PID);
-    printf("%s\n", pathName);
+    //printf("%s\n", pathName);
     file = fopen(pathName, "r");
     if (file == NULL) {
         perror("Error opening the file");
@@ -203,24 +235,32 @@ char *commandline(char *PID) {
     return toReturn;
 }
 
-void stateInformationUserTimeAndSystemTime(char *PID) {
-    //printf("%s\n", "Entering the function");
-    FILE *file;
-    char pathName[200];
-    int text;
-
-    // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
-    snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
-    printf("%s\n", pathName);
-    file = fopen(pathName, "r");
-    if (file == NULL) {
-        perror("Error opening the file");
-        exit(EXIT_FAILURE);
+void printElementsOfStruct(struct proc myProc) {
+    printf("%s", "Output: ");
+    if (myProc.pid != 0) {
+        printf("%d: ", myProc.pid);
     }
-    while ((text = fgetc(file)) != EOF) {
-        printf("%c", text);
+    if (myProc.state != 0) { 
+        printf("%c ", myProc.state);
     }
-    printf("%s\n", "Finished the function");
-    printf("\n");
-    fclose(file);
+    if (myProc.utime != 0) { 
+        printf("utime=%d ", myProc.utime);
+    }
+    if (myProc.stime != 0) {
+        printf("stime=%d ", myProc.stime);
+    }
+    if (myProc.vMemory != 0) {
+        printf("%d ", myProc.vMemory);
+    }
+    if (myProc.command[0] != '\0') {
+        printf("%s\n", myProc.command);
+    }
+    // printf("Struct PID is %d\n", myProc.pid);
+    // printf("struct command is %s\n", myProc.command);
+    // printf("Struct state is %c\n", myProc.state);
+    // printf("Struct user time is %d\n", myProc.utime);
+    // printf("Struct System time is %d\n", myProc.stime);
+    // printf("Struct virtual memmory is %d\n", myProc.vMemory);
+    
 }
+

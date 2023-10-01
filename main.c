@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <unistd.h>
+
 
 struct proc {
     int pid;
@@ -27,11 +29,13 @@ void printElementsOfStruct(struct proc myProc);
 
 
 
-int main(int argc, char **argv) {
+int main(const int argc, char *const argv[]) {
     struct proc myProc;
     int locationOfPID = 0;
     int containsUtime = 0;
     int containsCommandLine = 0;
+    int option;
+    char PIDpath[4097];
     //printf("Number of arguments = %d\n", argc);
     for (int i = 1; i < argc; i++) {
         //printf("Argument %d = %s\n", i, *(argv+i));
@@ -40,45 +44,62 @@ int main(int argc, char **argv) {
             break;
         }
     }
-    myProc.pid = atoi(argv[locationOfPID]);
-    //printf("The location of PID %d\n", locationOfPID);
-    for (int i = 1; i < argc; i++) {
-        //printf("%s\n", argv[i]);
-        if (strcmp(argv[i], "-s") == 0) {
-            //printf("%s is at location %d\n", "Entering the -s", i);
-            char result = stateInformation(argv[locationOfPID]);
-            myProc.state = result;
-        } else if (strcmp(argv[i], "-S") == 0) {
-            //printf("%s is at location %d\n", "Entering the -S", i); //15
-            int result = systemTime(argv[locationOfPID]);
-            myProc.stime = result;
-        } else if (strcmp(argv[i], "-v") == 0) {
-            //printf("%s is at location %d\n", "Entering the -v", i);
-            int result = virtualMemory(argv[locationOfPID]);
-            myProc.vMemory = result;
-            //virtualMemory(argv[i]);
-        } else if (strcmp(argv[i], "-U") == 0) {
-            containsUtime = 1;
-        } else if (strcmp(argv[i], "-c") == 0) {
-            containsCommandLine = 1;
-        } else {
-            perror("Invalid input");
+    strcpy(PIDpath, argv[locationOfPID]);
+    myProc.pid = atoi(PIDpath);
+ 
+    while ((option = getopt(argc, argv, "sSUvcp")) != -1) {
+        switch(option) {
+            case 's':
+                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                char result = stateInformation(PIDpath);
+                printf("result -s: %c\n", result);
+                myProc.state = result;
+                break;
+            case 'S':
+                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                int resultS = systemTime(PIDpath);
+                printf("result -S: %d\n", resultS);
+                myProc.stime = resultS;
+                break;
+            case 'v':
+                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                int resultV = virtualMemory(PIDpath);
+                printf("result -v: %d\n", resultV);
+                myProc.vMemory = resultV;
+                break;
+            case 'U':
+                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                containsUtime = 1;
+                break;
+            case 'c':
+                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                containsCommandLine = 1;
+                break;
+            case 'p':
+                continue;
+            default:
+                fprintf(stderr, "Usage: %s [-p PID] [-s] [-S] [-v] [-U] [-c]\n", argv[0]);
+                exit(EXIT_FAILURE);
         }
     }
+    
 
     if (!containsUtime) {
-        //printf("%s\n", "Entering Utime"); //14th field
-        int result = userTime(argv[locationOfPID]);
+        int result = userTime(PIDpath);
         myProc.utime = result;
     }
+    printf("%s\n", "printing struct before command line");
+    printElementsOfStruct(myProc);
+    printf("\n");
     if (!containsCommandLine) {
         //printf("%s\n", "Entering command line");
-        char *result = commandline(argv[locationOfPID]);
+        char *result = commandline(PIDpath);
         strncpy(myProc.command, result, sizeof(myProc.command));
+        free(result);
     }
 
     printElementsOfStruct(myProc);
-
+    return 0;
 
 }
 
@@ -99,12 +120,12 @@ int virtualMemory(char *PID) {
     snprintf(pathName, sizeof(pathName), "/proc/%s/statm", PID);
     file = fopen(pathName, "r");
     if (file == NULL) {
-        perror("Error opening the file");
+        perror("Virtual memory error opening the file");
         exit(EXIT_FAILURE);
     }
     int count = 1;
+    printf("%s\n", "statm");
     while ((text = fgetc(file)) != EOF) {
-        printf("%c", text);
          if (text == ' ') {
             count++;
             continue;
@@ -126,15 +147,16 @@ char stateInformation(char *PID) {
 
     // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
-    //printf("%s\n", pathName);
+    printf("Stat path name = %s\n", PID);
     file = fopen(pathName, "r");
     if (file == NULL) {
-        perror("Error opening the file");
+        perror("Stat Information error opening the file");
         exit(EXIT_FAILURE);
     }
     int count = 1;
+    printf("%s\n", "stat");
     while ((text = fgetc(file)) != EOF) {
-        //printf("%c", text);
+        printf("%c", text);
         if (text == ' ') {
             count++;
             continue;
@@ -156,13 +178,16 @@ int userTime(char *PID) {
 
     // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
+    //printf("%s\n", pathName);
     file = fopen(pathName, "r");
+    //printf("%s\n", pathName);
     if (file == NULL) {
-        perror("Error opening the file");
+        perror("User time Error opening the file");
         exit(EXIT_FAILURE);
     }
     int count = 1;
     while ((text = fgetc(file)) != EOF) {
+        //printf("%c", text);
         if (text == ' ') {
             count++;
             continue;
@@ -184,13 +209,15 @@ int systemTime(char *PID) {
 
     // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
+    //printf("%s\n", pathName);
     file = fopen(pathName, "r");
     if (file == NULL) {
-        perror("Error opening the file");
+        perror("System time Error opening the file");
         exit(EXIT_FAILURE);
     }
     int count = 1;
     while ((text = fgetc(file)) != EOF) {
+        //printf("%c", text);
         if (text == ' ') {
             count++;
             continue;
@@ -215,11 +242,12 @@ char *commandline(char *PID) {
     //printf("%s\n", pathName);
     file = fopen(pathName, "r");
     if (file == NULL) {
-        perror("Error opening the file");
+        perror("Command line Error opening the file");
         exit(EXIT_FAILURE);
     }
     while ((text = fgetc(file)) != EOF) {
-        char *temp = realloc(toReturn, size + 5);
+        printf("%c", text);
+        char *temp = (char *)realloc(toReturn, size + 2);
         if (temp == NULL) {
             perror("Error reallocating memory");
             free(toReturn);
@@ -229,38 +257,31 @@ char *commandline(char *PID) {
         toReturn = temp;
         toReturn[size] = (char)text;
         size++;
-        toReturn[size] = '\0';
     }
+    toReturn[size] = '\0';
     fclose(file);
     return toReturn;
 }
 
 void printElementsOfStruct(struct proc myProc) {
     printf("%s", "Output: ");
-    if (myProc.pid != 0) {
+    if (myProc.pid != -1) {
         printf("%d: ", myProc.pid);
     }
-    if (myProc.state != 0) { 
+    if (myProc.state != '\0') { 
         printf("%c ", myProc.state);
     }
-    if (myProc.utime != 0) { 
+    if (myProc.utime != -1) { 
         printf("utime=%d ", myProc.utime);
     }
-    if (myProc.stime != 0) {
+    if (myProc.stime != -1) {
         printf("stime=%d ", myProc.stime);
     }
-    if (myProc.vMemory != 0) {
-        printf("%d ", myProc.vMemory);
+    if (myProc.vMemory != -1) {
+        printf("vMemory=%d ", myProc.vMemory);
     }
     if (myProc.command[0] != '\0') {
         printf("%s\n", myProc.command);
     }
-    // printf("Struct PID is %d\n", myProc.pid);
-    // printf("struct command is %s\n", myProc.command);
-    // printf("Struct state is %c\n", myProc.state);
-    // printf("Struct user time is %d\n", myProc.utime);
-    // printf("Struct System time is %d\n", myProc.stime);
-    // printf("Struct virtual memmory is %d\n", myProc.vMemory);
-    
 }
 

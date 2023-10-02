@@ -50,29 +50,29 @@ int main(const int argc, char *const argv[]) {
     while ((option = getopt(argc, argv, "sSUvcp")) != -1) {
         switch(option) {
             case 's':
-                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
                 char result = stateInformation(PIDpath);
-                printf("result -s: %c\n", result);
+                //printf("result -s: %c\n", result);
                 myProc.state = result;
                 break;
             case 'S':
-                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
                 int resultS = systemTime(PIDpath);
-                printf("result -S: %d\n", resultS);
+                //printf("result -S: %d\n", resultS);
                 myProc.stime = resultS;
                 break;
             case 'v':
-                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
                 int resultV = virtualMemory(PIDpath);
-                printf("result -v: %d\n", resultV);
+                //printf("result -v: %d\n", resultV);
                 myProc.vMemory = resultV;
                 break;
             case 'U':
-                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
                 containsUtime = 1;
                 break;
             case 'c':
-                printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
                 containsCommandLine = 1;
                 break;
             case 'p':
@@ -88,9 +88,9 @@ int main(const int argc, char *const argv[]) {
         int result = userTime(PIDpath);
         myProc.utime = result;
     }
-    printf("%s\n", "printing struct before command line");
-    printElementsOfStruct(myProc);
-    printf("\n");
+    // printf("%s\n", "printing struct before command line");
+    // printElementsOfStruct(myProc);
+    // printf("\n");
     if (!containsCommandLine) {
         //printf("%s\n", "Entering command line");
         char *result = commandline(PIDpath);
@@ -124,7 +124,7 @@ int virtualMemory(char *PID) {
         exit(EXIT_FAILURE);
     }
     int count = 1;
-    printf("%s\n", "statm");
+    //printf("%s\n", "statm");
     while ((text = fgetc(file)) != EOF) {
          if (text == ' ') {
             count++;
@@ -145,18 +145,15 @@ char stateInformation(char *PID) {
     char processState = '\0';
     //char toReturn;
 
-    // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
-    printf("Stat path name = %s\n", PID);
     file = fopen(pathName, "r");
     if (file == NULL) {
         perror("Stat Information error opening the file");
         exit(EXIT_FAILURE);
     }
     int count = 1;
-    printf("%s\n", "stat");
     while ((text = fgetc(file)) != EOF) {
-        printf("%c", text);
+        //printf("%c", text);
         if (text == ' ') {
             count++;
             continue;
@@ -176,9 +173,7 @@ int userTime(char *PID) {
     int result = 0;
     //char toReturn;
 
-    // snprintf(path, sizeof(path), "%s/%s", argument, entryName -> d_name);
     snprintf(pathName, sizeof(pathName), "/proc/%s/stat", PID);
-    //printf("%s\n", pathName);
     file = fopen(pathName, "r");
     //printf("%s\n", pathName);
     if (file == NULL) {
@@ -283,5 +278,6 @@ void printElementsOfStruct(struct proc myProc) {
     if (myProc.command[0] != '\0') {
         printf("%s\n", myProc.command);
     }
+    printf("\n");
 }
 

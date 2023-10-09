@@ -1,49 +1,87 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/types.h>
 
+//void userIDFromEachProcess(char *PID);
+void getDirectoriesInProc(int argc);
+char *printProcessInfo(char *PID);
 
-int main() {
-    char *element = "Hello how are you?";
-    char *str;
-    str = element;
-    for (int i = 0; i < strlen(element); i++) {
-        printf("%s", str);
+int main(int argc, char **argv) {
+   getDirectoriesInProc(argc);
+   return 0;
+}
+
+char *printProcessInfo(char *PID) {
+    int count = 0;
+    int size = 10;
+    char *toReturn = (char*)malloc(size * sizeof(char));
+    if (toReturn == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
     }
-    printf("\n");
+    FILE *file;
+    char path[256];
+    snprintf(path, sizeof(path), "/proc/%s/status", PID);
+    file = fopen(path, "r");
+    if (file == NULL) {
+        perror("Error in the path");
+        exit(EXIT_FAILURE);
+    }
+    char entireLine[256];
+    char uid[256];
+    uid_t myUID = getuid();
+    while (fgets(entireLine, sizeof(entireLine), file)) {
+        if (sscanf(entireLine, "Uid: %s", uid) == 1) {
+            printf("MY UID = %d\n", myUID);
+            printf("atoi(uid) = %d\n", atoi(uid));
+            if (atoi(uid) == myUID) {
+                if (count >= size) {
+                    size = size * 2;
+                    toReturn = (char*)realloc(toReturn, size * sizeof(char));
+                    if (toReturn == NULL) {
+                        perror("Memory reallocation failed");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                count++;
+                // toReturn[count] = char(PID);
+                strcat(toReturn, PID);
+                printf("This matches the UID %s\n", PID);
+            }
+        }
+    }
+    fclose(file);
+    for (int i = 0; i < count; i++) {
+        printf("Matches UID = %s\n", toReturn);
+    }
+    return toReturn;
+}
+
+void getDirectoriesInProc(int argc) {
+    DIR *dirp;
+    struct dirent *entryName;
+    if (argc != 1) {
+        perror("More than one arguments provided");
+        exit(EXIT_FAILURE);
+    }
+    dirp = opendir("/proc");
+    if (dirp == NULL) {
+        perror("Error opening the directory");
+        exit(EXIT_FAILURE);
+    }
+    while ((entryName = readdir(dirp)) != NULL) {
+        if (entryName->d_type == DT_DIR && atoi(entryName->d_name) > 0) {
+            // printf("Directory name = %s\n", entryName->d_name);
+            printf("EntryName->d_name = %s\n", entryName->d_name);
+            printProcessInfo(entryName->d_name);
+        }
+    }
+    closedir(dirp);
 }
 
 
-        // printf("loop number = %d\n", i);
-        // if (strcmp(entireLine, "") != 0) {
-        //     rest = entireLine;
-        //     while((token = strtok_r(rest, ":", &rest))) {
-        //         if (token != NULL) {
-        //             char *trimmedToken = strtok(token, " \t\n\r");
-        //             printf("token=%s\n", trimmedToken);
-        //             if (strcmp(trimmedToken, "processor") == 0) {
-        //                 //printf("%s\n", "Found the processor");
-        //                 token = strtok_r(NULL, ":", &rest);
-        //                 if (token != NULL) {
-        //                     numberOfTheProcessor = atoi(token);
-        //                     printf("Number of Porocessor = %d\n", numberOfTheProcessor);
-        //                 } else {
-        //                     continue;
-        //                 }
-        //             } else if (strcmp(trimmedToken, "cache") == 0) {
-        //                 token = strtok_r(NULL, ":", &rest);
-        //                 if (token != NULL) {
-        //                     strcpy(cacheSize, token);   
-        //                     printf("cache size = %s\n", cacheSize);
-        //                 }
-        //             }
-        //             //printf("Processor %d with a cache size of %s\n", numberOfTheProcessor, cacheSize);
-        //             if (numberOfTheProcessor >= 0 && strlen(cacheSize) > 0) {
-        //                 printf("Processor %d with a cache size of %s\n", numberOfTheProcessor, cacheSize);
-        //                 numberOfTheProcessor = -1;
-        //                 cacheSize[0] = '\0';
-        //             }
-        //         }
-        //     }
-        // }
-        // i++;
+
+

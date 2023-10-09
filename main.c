@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <unistd.h>
+#define MAX_SIZE 100
 
 
 struct proc {
@@ -25,29 +26,62 @@ int userTime(char *PID);
 int systemTime(char *PID);
 int virtualMemory(char *PID);
 void printElementsOfStruct(struct proc myProc);
+char **getSameUserID();
+char *printProcessInfo(char *PID);
+struct proc printAllTheInformation(char* PIDpath, int argc, char **argv);
 
 
 
-
-int main(const int argc, char *const argv[]) {
+int main(int argc, char **argv) {
     struct proc myProc;
     int locationOfPID = 0;
-    int containsUtime = 0;
-    int containsCommandLine = 0;
-    int option;
     char PIDpath[4097];
-    //printf("Number of arguments = %d\n", argc);
+    bool flag = false;
+  
     for (int i = 1; i < argc; i++) {
         //printf("Argument %d = %s\n", i, *(argv+i));
         if (containsProcessInformation(argv[i])) {
             locationOfPID = i+1;
+            flag = true;
             break;
         }
+    } 
+    if (flag) {
+        strcpy(PIDpath, argv[locationOfPID]);
+        myProc = printAllTheInformation(PIDpath, argc, argv);
+        printElementsOfStruct(myProc);
+    } else {
+        printf("%s\n", "Entering in else");
+        char** result = getSameUserID();
+        int i = 0;
+        for (i = 0; result[i] != NULL; i++) {
+            printf("Here are the same user ID %s\n", result[i]);
+            myProc = printAllTheInformation(result[i], argc, argv);
+            printElementsOfStruct(myProc);
+        }
+        free(result);
     }
-    strcpy(PIDpath, argv[locationOfPID]);
+    return 0;
+}
+
+bool containsProcessInformation(char *argument) {
+    if (strcmp(argument, "-p") == 0) {
+        return true;
+    } 
+    return false;
+}
+
+struct proc printAllTheInformation(char* PIDpath, int argc, char **argv) {
+    int containsUtime = 0;
+    int containsCommandLine = 0;
+    int option;
+    struct proc myProc;
     myProc.pid = atoi(PIDpath);
- 
+
+   
+
     while ((option = getopt(argc, argv, "sSUvcp")) != -1) {
+        printf("%s %c\n", "option = ", option);
         switch(option) {
             case 's':
                 //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
@@ -82,33 +116,21 @@ int main(const int argc, char *const argv[]) {
                 exit(EXIT_FAILURE);
         }
     }
-    
+        
 
     if (!containsUtime) {
         int result = userTime(PIDpath);
         myProc.utime = result;
     }
-    // printf("%s\n", "printing struct before command line");
-    // printElementsOfStruct(myProc);
-    // printf("\n");
+
     if (!containsCommandLine) {
-        //printf("%s\n", "Entering command line");
         char *result = commandline(PIDpath);
         strncpy(myProc.command, result, sizeof(myProc.command));
         free(result);
     }
-
-    printElementsOfStruct(myProc);
-    return 0;
-
+    return myProc;
 }
 
-bool containsProcessInformation(char *argument) {
-    if (strcmp(argument, "-p") == 0) {
-        return true;
-    } 
-    return false;
-}
 int virtualMemory(char *PID) {
     FILE *file;
     char pathName[200];
@@ -241,7 +263,7 @@ char *commandline(char *PID) {
         exit(EXIT_FAILURE);
     }
     while ((text = fgetc(file)) != EOF) {
-        printf("%c", text);
+        //printf("%c", text);
         char *temp = (char *)realloc(toReturn, size + 2);
         if (temp == NULL) {
             perror("Error reallocating memory");
@@ -279,5 +301,59 @@ void printElementsOfStruct(struct proc myProc) {
         printf("%s\n", myProc.command);
     }
     printf("\n");
+}
+
+
+char *printProcessInfo(char *PID) {
+
+    FILE *file;
+    char path[256];
+    snprintf(path, sizeof(path), "/proc/%s/status", PID);
+    file = fopen(path, "r");
+    if (file == NULL) {
+        printf("path = %s, PID = %s\n", path, PID);
+        perror("Error in the path");
+        exit(EXIT_FAILURE);
+    }
+    char entireLine[256];
+    char uid[256];
+    uid_t myUID = getuid();
+    //printf("MY UID = %d\n", myUID);
+    while (fgets(entireLine, sizeof(entireLine), file)) {
+        if (sscanf(entireLine, "Uid: %s", uid) == 1) {
+            if (atoi(uid) == myUID) {
+                fclose(file);
+                return PID;
+            }
+        }
+    }
+    fclose(file);
+    return NULL;
+}
+
+char **getSameUserID() {
+    DIR *dirp;
+    struct dirent *entryName;
+    char **toReturn = (char**)malloc(MAX_SIZE * sizeof(char*));
+    int i = 0;
+    dirp = opendir("/proc");
+    if (dirp == NULL) {
+        perror("Error opening the directory");
+        exit(EXIT_FAILURE);
+    }
+    while ((entryName = readdir(dirp)) != NULL) {
+        if (entryName->d_type == DT_DIR && atoi(entryName->d_name) > 0) {
+            // printf("Directory name = %s\n", entryName->d_name);
+            char *PID = printProcessInfo(entryName->d_name);
+            //printf("Returned PID is = %s\n", PID);
+            if (PID != NULL) {
+                toReturn[i] = PID;
+                i++;
+            }
+        }
+    }
+    closedir(dirp);
+    toReturn[i] = NULL;
+    return toReturn;
 }
 

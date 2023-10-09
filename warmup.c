@@ -9,9 +9,11 @@
 #include <unistd.h>
 
 void cpuinfo();
+void memoryInfo();
 
 int main(int argc, char **argv) {
     cpuinfo();
+    memoryInfo();
     return 0;
 }
 
@@ -56,6 +58,45 @@ void cpuinfo() {
             }
         }
     }      
+    fclose(file);
+}
+
+void memoryInfo() {
+    FILE *file;
+    char entireLine[256];
+    char *rest;
+    char *token;
+    char freeMemory[200];
+    char buffer[200];
+    file = fopen("/proc/meminfo", "r");
+    if (file == NULL) {
+        perror("Virtual memory error opening the file");
+        exit(EXIT_FAILURE);
+    }
+    while (fgets(entireLine, sizeof(entireLine), file)) {
+        rest = entireLine;
+        while ((token = strtok_r(rest, ":\n", &rest))) {
+            char *trimmedToken = strtok(token, " \t");
+            if (trimmedToken == NULL) {
+                continue;
+            }
+            if (strcmp(trimmedToken, "MemFree") == 0) {
+                token = strtok_r(NULL, ":", &rest);
+                if (token != NULL) {
+                    strcpy(freeMemory, token);
+                }
+            } else if (strcmp(trimmedToken, "Buffers") == 0) {
+                token = strtok_r(NULL, ":", &rest);
+                if (token != NULL) {
+                    strcpy(buffer, token);
+                }
+            } else {
+                continue;
+            }
+        }
+    }
+    printf("Free memory %s\n", freeMemory);
+    printf("Buffers: %s\n", buffer);
     fclose(file);
 }
 

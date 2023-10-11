@@ -28,12 +28,12 @@ int virtualMemory(char *PID);
 void printElementsOfStruct(struct proc myProc);
 char **getSameUserID();
 char *printProcessInfo(char *PID);
-struct proc printAllTheInformation(char* PIDpath, int argc, char **argv);
+struct proc getAllTheInformation(char* PIDpath, int argc, char **argv);
+struct proc informationOfSameUserID(char *PID, int argc, char **argv);
 
 
 
 int main(int argc, char **argv) {
-    struct proc myProc;
     int locationOfPID = 0;
     char PIDpath[4097];
     bool flag = false;
@@ -48,20 +48,93 @@ int main(int argc, char **argv) {
     } 
     if (flag) {
         strcpy(PIDpath, argv[locationOfPID]);
-        myProc = printAllTheInformation(PIDpath, argc, argv);
-        printElementsOfStruct(myProc);
+        struct proc someProc = getAllTheInformation(PIDpath, argc, argv);
+        printElementsOfStruct(someProc);
     } else {
-        printf("%s\n", "Entering in else");
+        //printf("%s\n", "Entering in else");
         char** result = getSameUserID();
-        int i = 0;
-        for (i = 0; result[i] != NULL; i++) {
-            printf("Here are the same user ID %s\n", result[i]);
-            myProc = printAllTheInformation(result[i], argc, argv);
+        for (int i = 0; result[i] != NULL; i++) {
+            //printf("Here are the same user ID %s\n", result[i]);
+            struct proc myProc = informationOfSameUserID(result[i], argc, argv);
             printElementsOfStruct(myProc);
         }
-        free(result);
     }
     return 0;
+}
+
+
+struct proc informationOfSameUserID(char *PID, int argc, char **argv) {
+    //printf("%s\n", "Entering teh function");
+    struct proc myProc;
+    myProc.pid = atoi(PID);
+    if (argc == 1) {
+        //prints cmdline, utime, and PID of each process with your UID
+        char *result = commandline(PID);
+        strncpy(myProc.command, result, sizeof(myProc.command));
+        free(result);
+        int x = userTime(PID);
+        if (x >= 0) {
+            myProc.utime = x;
+        }
+        myProc.state = '\0';
+        myProc.stime = -1;
+        myProc.vMemory = -1;
+
+    } else {
+        int containsUtime = 0;
+        int containsCommandLine = 0;
+
+        bool si = false;
+        bool st = false;
+        bool vm = false;
+        
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "-s") == 0) {
+                char result = stateInformation(PID);
+                myProc.state = result;
+                si = true;
+            } else if (strcmp(argv[i], "-S") == 0) {
+                int resultS = systemTime(PID);
+                myProc.stime = resultS;
+                st = true;
+            } else if (strcmp(argv[i], "-v") == 0) {
+                int resultV = virtualMemory(PID);
+                myProc.vMemory = resultV;
+                vm = true;
+            } else if (strcmp(argv[i], "-U") == 0) {
+                containsUtime = 1;
+            } else if (strcmp(argv[i], "-c") == 0) {
+                containsCommandLine = 1;
+            } else {
+                fprintf(stderr, "Usage: %s [-p PID] [-s] [-S] [-v] [-U] [-c]\n", argv[0]);
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        if (!si) {
+            myProc.state = '\0';
+        }
+        if (!st) {
+            myProc.stime = -1;
+        }
+        if (!vm) {
+            myProc.vMemory = -1;
+        }
+               
+        if (!containsUtime) {
+            int result = userTime(PID);
+            myProc.utime = result;
+        } else {
+            myProc.utime = -1;
+        }
+
+        if (!containsCommandLine) {
+            char *result = commandline(PID);
+            strncpy(myProc.command, result, sizeof(myProc.command));
+            free(result);
+        }
+    }    
+    return myProc;
 }
 
 bool containsProcessInformation(char *argument) {
@@ -71,14 +144,12 @@ bool containsProcessInformation(char *argument) {
     return false;
 }
 
-struct proc printAllTheInformation(char* PIDpath, int argc, char **argv) {
+struct proc getAllTheInformation(char* PIDpath, int argc, char **argv) {
     int containsUtime = 0;
     int containsCommandLine = 0;
     int option;
     struct proc myProc;
     myProc.pid = atoi(PIDpath);
-
-   
 
     while ((option = getopt(argc, argv, "sSUvcp")) != -1) {
         printf("%s %c\n", "option = ", option);
@@ -103,6 +174,7 @@ struct proc printAllTheInformation(char* PIDpath, int argc, char **argv) {
                 break;
             case 'U':
                 //printf("[%d] PID is = %s\n",locationOfPID ,PIDpath);
+                printf("%s\n", "Entering U time");
                 containsUtime = 1;
                 break;
             case 'c':
@@ -116,11 +188,13 @@ struct proc printAllTheInformation(char* PIDpath, int argc, char **argv) {
                 exit(EXIT_FAILURE);
         }
     }
-        
 
     if (!containsUtime) {
+        printf("%s\n", "Entering U time part 2");
         int result = userTime(PIDpath);
         myProc.utime = result;
+    } else {
+        myProc.utime = -1;
     }
 
     if (!containsCommandLine) {
